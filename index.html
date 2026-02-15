@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, maximum-scale=1">
-    <title>Pháo Hoa Nghệ Thuật - Auto Landscape</title>
+    <title>Pháo Hoa Nghệ Thuật - Mobile Optimized</title>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap');
@@ -16,13 +16,11 @@
             touch-action: none; 
         }
 
-        /* Xóa bỏ phần rotate-device cũ */
-
         #countdown-bg {
             position: absolute;
             top: 0; left: 0; 
             width: 100%; height: 100%;
-            background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), 
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), 
                         url('https://images.unsplash.com/photo-1467810563316-b5476525c0f9?q=80&w=2069&auto=format&fit=crop'); 
             background-size: cover;
             background-position: center;
@@ -37,7 +35,7 @@
             text-align: center;
             z-index: 10;
             transition: opacity 1s ease;
-            width: 90%;
+            width: 100%;
         }
 
         .digital-clock {
@@ -66,7 +64,7 @@
 
         #neon-text {
             position: absolute;
-            top: 45%; left: 50%;
+            top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             width: 100%;
             text-align: center;
@@ -91,27 +89,18 @@
         .visible { opacity: 1 !important; }
         .hidden { opacity: 0 !important; pointer-events: none; }
 
-        @media (max-width: 600px) {
-            .digital-clock { font-size: 8vw; gap: 10px; }
-            .unit span { font-size: 2vw; }
-            #neon-text { font-size: 10vw; top: 40%; }
-        }
-
-        /* --- MAGIC CSS: ÉP BUỘC CHẾ ĐỘ NGANG TRÊN MOBILE --- */
+        /* --- ÉP BUỘC CHẾ ĐỘ NGANG TRÊN MOBILE --- */
         @media screen and (orientation: portrait) {
             body {
                 position: fixed;
                 top: 0; left: 0;
-                /* Đảo ngược chiều rộng/cao để khớp với chiều dọc điện thoại */
                 width: 100vh; 
                 height: 100vw;
-                /* Xoay 90 độ và định vị lại */
                 transform-origin: top left;
                 transform: rotate(90deg) translateY(-100%);
                 overflow: hidden;
             }
             
-            /* Điều chỉnh kích thước font chữ một chút cho cân đối khi xoay */
             .digital-clock { font-size: 10vh; } 
             .unit span { font-size: 2vh; }
             #neon-text { font-size: 12vh; }
@@ -130,7 +119,7 @@
             <div class="unit">00<span>Phút</span></div> :
             <div class="unit" id="sec-unit">05<span>Giây</span></div>
         </div>
-        <p style="color: #00f2ff; letter-spacing: 4px; margin-top: 25px; font-size: 1.2rem;">HỆ THỐNG SẴN SÀNG</p>
+        <p style="color: #00f2ff; letter-spacing: 4px; margin-top: 25px; font-size: 1.2rem; font-weight: bold;">HỆ THỐNG SẴN SÀNG</p>
     </div>
 
     <div id="neon-text">HAPPY NEW YEAR</div>
@@ -138,9 +127,12 @@
     <canvas id="canvas"></canvas>
 
     <script>
-        const isMobile = window.innerWidth < 768;
-        const scaleFactor = window.devicePixelRatio || 1;
-        const particleCountMult = isMobile ? 0.6 : 1;
+        // Cấu hình hiển thị
+        const pixelRatio = window.devicePixelRatio || 1; // Giữ độ nét cao
+        
+        // Tính toán tỷ lệ dựa trên kích thước màn hình
+        // Giả sử màn hình chuẩn PC cao 900px. Nếu màn hình nhỏ hơn, ta giảm scale.
+        let masterScale = 1; 
 
         const MyMath = {
             twoPI: Math.PI * 2,
@@ -166,18 +158,31 @@
         const ctx = canvas.getContext('2d');
         let cw, ch;
 
-        // Cập nhật hàm resize để nhận diện đúng kích thước khi đã xoay CSS
         const resize = () => {
+            // Logic nhận diện xoay ngang/dọc để đặt kích thước Canvas đúng
             if (window.innerWidth < window.innerHeight && window.innerWidth < 768) {
-                // Nếu đang ở chế độ dọc (portrait), gán width = chiều cao màn hình
-                cw = canvas.width = window.innerHeight;
-                ch = canvas.height = window.innerWidth;
+                // Mobile dọc (đã xoay bằng CSS)
+                cw = canvas.width = window.innerHeight * pixelRatio;
+                ch = canvas.height = window.innerWidth * pixelRatio;
+                canvas.style.width = window.innerHeight + 'px';
+                canvas.style.height = window.innerWidth + 'px';
             } else {
-                // Chế độ bình thường
-                cw = canvas.width = window.innerWidth;
-                ch = canvas.height = window.innerHeight;
+                // PC hoặc Mobile ngang
+                cw = canvas.width = window.innerWidth * pixelRatio;
+                ch = canvas.height = window.innerHeight * pixelRatio;
+                canvas.style.width = window.innerWidth + 'px';
+                canvas.style.height = window.innerHeight + 'px';
             }
+            
+            // Tính toán Master Scale: Dựa trên chiều cao thực tế so với chiều cao chuẩn PC (900px)
+            // Giúp pháo không bắn ra ngoài màn hình trên thiết bị nhỏ
+            masterScale = ch / (900 * pixelRatio);
+            if (masterScale > 1) masterScale = 1; // Không phóng to quá mức trên màn hình 4K
+            
+            // Đặt lại scale của context để vẽ nét mịn
+            // Lưu ý: Ta không dùng ctx.scale() toàn cục để dễ kiểm soát toạ độ vật lý
         };
+        
         window.addEventListener('resize', resize);
         resize();
 
@@ -198,7 +203,8 @@
                 this.alpha = 1;
                 this.lightness = options.lightness || 70;
                 this.friction = options.friction || 0.96;
-                this.gravity = options.gravity || 0.12;
+                // Gravity cũng cần scale theo kích thước màn hình để rơi tự nhiên
+                this.gravity = (options.gravity || 0.12) * masterScale; 
                 this.decay = options.decay || MyMath.random(0.015, 0.03);
                 this.flicker = options.flicker || false;
             }
@@ -218,32 +224,44 @@
                 ctx.moveTo(this.prevX, this.prevY);
                 ctx.lineTo(this.x, this.y);
                 ctx.strokeStyle = `hsla(${this.hue}, 100%, ${this.lightness}%, ${this.alpha})`;
-                ctx.lineWidth = 1.5 * scaleFactor; 
+                // Độ dày nét vẽ giữ nguyên sự sắc nét
+                ctx.lineWidth = 1.5 * pixelRatio; 
                 ctx.stroke();
             }
         }
 
         class Firework {
             constructor() {
-                const cols = isMobile ? 6 : 10;
+                const cols = 10; // Giữ nguyên số cột để rải đều
                 const sw = cw / cols;
                 const idx = MyMath.randomInt(1, cols - 1);
                 this.x = (idx * sw) + MyMath.random(-sw/4, sw/4);
                 this.y = ch;
-                this.speed = isMobile ? MyMath.random(8, 11) : MyMath.random(9, 13);
+                
+                // --- QUAN TRỌNG: ĐIỀU CHỈNH TỐC ĐỘ THEO CHIỀU CAO MÀN HÌNH ---
+                // Tốc độ gốc (PC) khoảng 13-17. Nhân với masterScale để giảm trên mobile.
+                // Thêm pixelRatio để bù lại việc canvas bị phóng to.
+                const baseSpeed = MyMath.random(11, 16); 
+                this.speed = baseSpeed * masterScale * pixelRatio;
+                
                 this.hue = MyMath.random(0, 360);
                 this.alive = true;
             }
 
             update() {
                 this.y -= this.speed;
-                this.speed *= 0.985;
+                this.speed *= 0.985; // Sức cản không khí
+                
+                // Hạt bụi rơi ra khi bay lên
                 if (Math.random() > 0.7) {
-                    particles.push(new Particle(this.x, this.y, this.hue, MyMath.random(-0.5, 0.5), 1, {
+                    particles.push(new Particle(this.x, this.y, this.hue, 0, 0, {
                         decay: 0.05, gravity: 0.05, flicker: true
                     }));
                 }
-                if (this.speed <= 1) {
+                
+                // Điều kiện nổ: Khi tốc độ chậm lại HOẶC sắp chạm mép trên màn hình
+                // (masterScale * 100 * pixelRatio) là vùng đệm an toàn phía trên
+                if (this.speed <= (1 * pixelRatio) || this.y < (ch * 0.15)) {
                     this.explode();
                     this.alive = false;
                 }
@@ -251,7 +269,8 @@
 
             draw() {
                 ctx.beginPath();
-                ctx.arc(this.x, this.y, 2.5 * scaleFactor, 0, MyMath.twoPI);
+                // Kích thước đầu đạn cũng scale theo
+                ctx.arc(this.x, this.y, 2.5 * pixelRatio, 0, MyMath.twoPI);
                 ctx.fillStyle = `hsl(${this.hue}, 100%, 70%)`;
                 ctx.fill();
             }
@@ -263,18 +282,25 @@
                 screenFlashIntensity = 0.15;
                 const type = MyMath.randomInt(1, 4);
                 const h = this.hue;
-                const count = (base) => Math.floor(base * particleCountMult);
+                
+                // Giữ nguyên số lượng hạt (Quality) như PC
+                const count = (base) => base; 
+                
+                // --- QUAN TRỌNG: SCALE BÁN KÍNH NỔ ---
+                // Nhân lực bắn (force) với masterScale * pixelRatio
+                const force = (val) => val * masterScale * pixelRatio;
 
                 switch(type) {
-                    case 1: 
+                    case 1: // Hình cầu tròn
                         MyMath.createBurst(count(180), (a, r) => {
-                             particles.push(new Particle(this.x, this.y, h, Math.cos(a)*7*r, Math.sin(a)*7*r));
+                             particles.push(new Particle(this.x, this.y, h, Math.cos(a)*force(7)*r, Math.sin(a)*force(7)*r));
                         });
+                        // Vòng nhẫn
                         const ringHue = (h + 40) % 360;
                         const ringParticles = count(80);
                         for(let i = 0; i < ringParticles; i++) {
                             const a = (i / ringParticles) * MyMath.twoPI;
-                            const speed = 11;
+                            const speed = force(11); // Tốc độ nổ scale theo màn hình
                             const vx = Math.cos(a) * speed * (Math.random() * 0.2 + 0.8);
                             const vy = Math.sin(a) * speed * 0.15;
                             particles.push(new Particle(this.x, this.y, ringHue, vx, vy, {
@@ -283,27 +309,28 @@
                         }
                         break;
 
-                    case 2:
+                    case 2: // Hai màu
                         const h2 = (h + 180) % 360;
                         MyMath.createBurst(count(250), (a, r) => {
-                            const vx = Math.cos(a)*8*r;
-                            particles.push(new Particle(this.x, this.y, vx < 0 ? h : h2, vx, Math.sin(a)*8*r, {flicker: true}));
+                            const vx = Math.cos(a)*force(8)*r;
+                            particles.push(new Particle(this.x, this.y, vx < 0 ? h : h2, vx, Math.sin(a)*force(8)*r, {flicker: true}));
                         });
                         break;
 
-                    case 3:
+                    case 3: // Hình trái tim (Heart)
                         const heartCount = count(300);
                         for(let i=0; i<heartCount; i++) {
                             const a = Math.random() * MyMath.twoPI;
-                            const r = Math.random() * 12;
+                            const r = Math.random() * force(12); // Bán kính trái tim scale
                             const tx = 16 * Math.pow(Math.sin(a), 3);
                             const ty = -(13 * Math.cos(a) - 5 * Math.cos(2*a) - 2 * Math.cos(3*a) - Math.cos(4*a));
+                            // Công thức trái tim chuẩn hoá, cần chia 16 để lấy đơn vị vector
                             particles.push(new Particle(this.x, this.y, h, (tx/16)*r, (ty/16)*r, {friction: 0.94}));
                         }
                         break;
 
-                    case 4:
-                        MyMath.createBurst(count(150), (a, r) => particles.push(new Particle(this.x, this.y, h, Math.cos(a)*9*r, Math.sin(a)*9*r, {
+                    case 4: // Nổ lớn có đuôi
+                        MyMath.createBurst(count(150), (a, r) => particles.push(new Particle(this.x, this.y, h, Math.cos(a)*force(9)*r, Math.sin(a)*force(9)*r, {
                             friction: 0.98, gravity: 0.04, decay: 0.008, flicker: true
                         })));
                         break;
@@ -316,11 +343,12 @@
             if (!isStarted) return;
 
             ctx.globalCompositeOperation = 'destination-out';
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.18)'; // Tạo vệt mờ đuôi
             ctx.fillRect(0, 0, cw, ch);
             
             ctx.globalCompositeOperation = 'lighter';
 
+            // Hiệu ứng nháy màn hình khi nổ
             if (screenFlashIntensity > 0) {
                 const g = ctx.createRadialGradient(lastExplosionX, lastExplosionY, 0, lastExplosionX, lastExplosionY, cw);
                 g.addColorStop(0, `hsla(${screenFlashHue}, 100%, 50%, ${screenFlashIntensity})`);
@@ -343,7 +371,8 @@
                 if (particles[i].alpha <= 0) particles.splice(i, 1);
             }
 
-            const freq = isMobile ? 180 : 150;
+            // Tần suất bắn: Mobile bắn nhanh hơn chút vì màn nhỏ
+            const freq = (window.innerWidth < 768) ? 120 : 150; 
             if (MyMath.randomInt(0, freq) === 0) {
                 fireworks.push(new Firework());
             }
