@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, maximum-scale=1">
+    <title>Pháo Hoa Nghệ Thuật</title>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap');
+
+        body {
+            background-color: #000;
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            touch-action: none; 
+        }
+
+        #countdown-bg {
+            position: absolute;
+            top: 0; left: 0; 
+            width: 100%; height: 100%;
+            background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), 
+                        url('https://images.unsplash.com/photo-1467810563316-b5476525c0f9?q=80&w=2069&auto=format&fit=crop'); 
+            background-size: cover;
+            background-position: center;
+            z-index: 1;
+            transition: opacity 2s ease-in-out;
+        }
+
+        #countdown-wrap {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 10;
+            transition: opacity 1s ease;
+            width: 90%;
+        }
+
+        .digital-clock {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 6vw; 
+            color: #fff;
+            text-shadow: 0 0 10px #00f2ff, 0 0 20px #00f2ff;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .unit {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .unit span {
+            font-size: 1.2vw;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            opacity: 0.7;
+        }
+
+        #neon-text {
+            position: absolute;
+            top: 45%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            text-align: center;
+            z-index: 2;
+            pointer-events: none;
+            font-size: 8vw;
+            font-weight: bold;
+            letter-spacing: 5px;
+            color: rgba(200, 245, 255, 0.3); 
+            text-shadow: 0 0 15px rgba(0, 180, 255, 0.5), 0 0 50px rgba(0, 100, 255, 0.2);
+            opacity: 0;
+            transition: opacity 3s ease-in-out;
+        }
+
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0; left: 0;
+            z-index: 5;
+        }
+
+        .visible { opacity: 1 !important; }
+        .hidden { opacity: 0 !important; pointer-events: none; }
+
+        @media (max-width: 600px) {
+            .digital-clock { font-size: 8vw; gap: 10px; }
+            .unit span { font-size: 2vw; }
+            #neon-text { font-size: 10vw; top: 40%; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="countdown-bg"></div>
+
+    <div id="countdown-wrap">
+        <div class="digital-clock">
+            <div class="unit">00<span>Ngày</span></div> :
+            <div class="unit">00<span>Giờ</span></div> :
+            <div class="unit">00<span>Phút</span></div> :
+            <div class="unit" id="sec-unit">05<span>Giây</span></div>
+        </div>
+        <p style="color: #00f2ff; letter-spacing: 4px; margin-top: 25px; font-size: 1.2rem;">CLASS: 11A1</p>
+    </div>
+
+    <div id="neon-text">HAPPY NEW YEAR</div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const isMobile = window.innerWidth < 768;
+        const scaleFactor = window.devicePixelRatio || 1;
+        const particleCountMult = isMobile ? 0.6 : 1;
+
+        const MyMath = {
+            twoPI: Math.PI * 2,
+            random: (min, max) => Math.random() * (max - min) + min,
+            randomInt: (min, max) => (Math.random() * (max - min + 1) | 0) + min,
+            createBurst: (count, factory) => {
+                const R = 0.5 * Math.sqrt(count / Math.PI);
+                const C = 2 * R * Math.PI;
+                const C_HALF = C / 2;
+                for (let i = 0; i <= C_HALF; i++) {
+                    const ringAngle = (i / C_HALF) * (Math.PI / 2);
+                    const ringSize = Math.cos(ringAngle);
+                    const partsInRing = C * ringSize;
+                    const angleInc = MyMath.twoPI / partsInRing;
+                    for (let j = 0; j < partsInRing; j++) {
+                        factory(angleInc * j, ringSize);
+                    }
+                }
+            }
+        };
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let cw, ch;
+
+        const resize = () => {
+            cw = canvas.width = window.innerWidth;
+            ch = canvas.height = window.innerHeight;
+        };
+        window.addEventListener('resize', resize);
+        resize();
+
+        const fireworks = [];
+        const particles = [];
+        let isStarted = false;
+        let screenFlashHue = 0;
+        let screenFlashIntensity = 0;
+        let lastExplosionX = 0;
+        let lastExplosionY = 0;
+
+        class Particle {
+            constructor(x, y, hue, vx, vy, options = {}) {
+                this.x = x; this.y = y;
+                this.prevX = x; this.prevY = y;
+                this.vx = vx; this.vy = vy;
+                this.hue = hue;
+                this.alpha = 1;
+                this.lightness = options.lightness || 70;
+                this.friction = options.friction || 0.96;
+                this.gravity = options.gravity || 0.12;
+                this.decay = options.decay || MyMath.random(0.015, 0.03);
+                this.flicker = options.flicker || false;
+            }
+
+            update() {
+                this.prevX = this.x; this.prevY = this.y;
+                this.vx *= this.friction; this.vy *= this.friction;
+                this.vy += this.gravity;
+                this.x += this.vx; this.y += this.vy;
+                this.alpha -= this.decay;
+                if (this.flicker) this.lightness = MyMath.randomInt(40, 95);
+            }
+
+            draw() {
+                if (this.alpha <= 0) return;
+                ctx.beginPath();
+                ctx.moveTo(this.prevX, this.prevY);
+                ctx.lineTo(this.x, this.y);
+                ctx.strokeStyle = `hsla(${this.hue}, 100%, ${this.lightness}%, ${this.alpha})`;
+                ctx.lineWidth = 1.5 * scaleFactor; 
+                ctx.stroke();
+            }
+        }
+
+        class Firework {
+            constructor() {
+                const cols = isMobile ? 6 : 10;
+                const sw = cw / cols;
+                const idx = MyMath.randomInt(1, cols - 1);
+                this.x = (idx * sw) + MyMath.random(-sw/4, sw/4);
+                this.y = ch;
+                this.speed = isMobile ? MyMath.random(8, 11) : MyMath.random(9, 13);
+                this.hue = MyMath.random(0, 360);
+                this.alive = true;
+            }
+
+            update() {
+                this.y -= this.speed;
+                this.speed *= 0.985;
+                if (Math.random() > 0.7) {
+                    particles.push(new Particle(this.x, this.y, this.hue, MyMath.random(-0.5, 0.5), 1, {
+                        decay: 0.05, gravity: 0.05, flicker: true
+                    }));
+                }
+                if (this.speed <= 1) {
+                    this.explode();
+                    this.alive = false;
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2.5 * scaleFactor, 0, MyMath.twoPI);
+                ctx.fillStyle = `hsl(${this.hue}, 100%, 70%)`;
+                ctx.fill();
+            }
+
+            explode() {
+                lastExplosionX = this.x;
+                lastExplosionY = this.y;
+                screenFlashHue = this.hue;
+                screenFlashIntensity = 0.15;
+                const type = MyMath.randomInt(1, 4);
+                const h = this.hue;
+                const count = (base) => Math.floor(base * particleCountMult);
+
+                switch(type) {
+                    case 1: 
+                        MyMath.createBurst(count(180), (a, r) => {
+                             particles.push(new Particle(this.x, this.y, h, Math.cos(a)*7*r, Math.sin(a)*7*r));
+                        });
+                        const ringHue = (h + 40) % 360;
+                        const ringParticles = count(80);
+                        for(let i = 0; i < ringParticles; i++) {
+                            const a = (i / ringParticles) * MyMath.twoPI;
+                            const speed = 11;
+                            const vx = Math.cos(a) * speed * (Math.random() * 0.2 + 0.8);
+                            const vy = Math.sin(a) * speed * 0.15;
+                            particles.push(new Particle(this.x, this.y, ringHue, vx, vy, {
+                                flicker: true, lightness: 85
+                            }));
+                        }
+                        break;
+
+                    case 2:
+                        const h2 = (h + 180) % 360;
+                        MyMath.createBurst(count(250), (a, r) => {
+                            const vx = Math.cos(a)*8*r;
+                            particles.push(new Particle(this.x, this.y, vx < 0 ? h : h2, vx, Math.sin(a)*8*r, {flicker: true}));
+                        });
+                        break;
+
+                    case 3:
+                        const heartCount = count(300);
+                        for(let i=0; i<heartCount; i++) {
+                            const a = Math.random() * MyMath.twoPI;
+                            const r = Math.random() * 12;
+                            const tx = 16 * Math.pow(Math.sin(a), 3);
+                            const ty = -(13 * Math.cos(a) - 5 * Math.cos(2*a) - 2 * Math.cos(3*a) - Math.cos(4*a));
+                            particles.push(new Particle(this.x, this.y, h, (tx/16)*r, (ty/16)*r, {friction: 0.94}));
+                        }
+                        break;
+
+                    case 4:
+                        MyMath.createBurst(count(150), (a, r) => particles.push(new Particle(this.x, this.y, h, Math.cos(a)*9*r, Math.sin(a)*9*r, {
+                            friction: 0.98, gravity: 0.04, decay: 0.008, flicker: true
+                        })));
+                        break;
+                }
+            }
+        }
+
+        function loop() {
+            requestAnimationFrame(loop);
+            if (!isStarted) return;
+
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+            ctx.fillRect(0, 0, cw, ch);
+            
+            ctx.globalCompositeOperation = 'lighter';
+
+            if (screenFlashIntensity > 0) {
+                const g = ctx.createRadialGradient(lastExplosionX, lastExplosionY, 0, lastExplosionX, lastExplosionY, cw);
+                g.addColorStop(0, `hsla(${screenFlashHue}, 100%, 50%, ${screenFlashIntensity})`);
+                g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                ctx.fillStyle = g;
+                ctx.fillRect(0, 0, cw, ch);
+                screenFlashIntensity *= 0.92;
+                if (screenFlashIntensity < 0.005) screenFlashIntensity = 0;
+            }
+
+            for (let i = fireworks.length - 1; i >= 0; i--) {
+                fireworks[i].draw();
+                fireworks[i].update();
+                if (!fireworks[i].alive) fireworks.splice(i, 1);
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].draw();
+                particles[i].update();
+                if (particles[i].alpha <= 0) particles.splice(i, 1);
+            }
+
+            const freq = isMobile ? 120 : 100;
+            if (MyMath.randomInt(0, freq) === 0) {
+                fireworks.push(new Firework());
+            }
+        }
+
+        let timeLeft = 5;
+        const secUnit = document.getElementById('sec-unit');
+        
+        const countdownTimer = setInterval(() => {
+            timeLeft--;
+            secUnit.innerHTML = (timeLeft < 10 ? '0' + timeLeft : timeLeft) + "<span>Giây</span>";
+            
+            if (timeLeft <= 0) {
+                clearInterval(countdownTimer);
+                document.getElementById('countdown-wrap').classList.add('hidden');
+                document.getElementById('countdown-bg').style.opacity = '0';
+                
+                setTimeout(() => {
+                    document.getElementById('neon-text').classList.add('visible');
+                    isStarted = true;
+                }, 500);
+            }
+        }, 1000);
+
+        loop();
+    </script>
+</body>
+</html>
