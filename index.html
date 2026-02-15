@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, maximum-scale=1">
-    <title>Pháo Hoa Nghệ Thuật</title>
+    <title>Pháo Hoa Nghệ Thuật - Auto Landscape</title>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap');
@@ -16,25 +16,7 @@
             touch-action: none; 
         }
 
-        #rotate-device {
-            display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: #000;
-            color: white;
-            z-index: 9999;
-            text-align: center;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-        }
-
-        @media (orientation: portrait) {
-            #rotate-device {
-                display: flex;
-            }
-        }
+        /* Xóa bỏ phần rotate-device cũ */
 
         #countdown-bg {
             position: absolute;
@@ -114,15 +96,30 @@
             .unit span { font-size: 2vw; }
             #neon-text { font-size: 10vw; top: 40%; }
         }
+
+        /* --- MAGIC CSS: ÉP BUỘC CHẾ ĐỘ NGANG TRÊN MOBILE --- */
+        @media screen and (orientation: portrait) {
+            body {
+                position: fixed;
+                top: 0; left: 0;
+                /* Đảo ngược chiều rộng/cao để khớp với chiều dọc điện thoại */
+                width: 100vh; 
+                height: 100vw;
+                /* Xoay 90 độ và định vị lại */
+                transform-origin: top left;
+                transform: rotate(90deg) translateY(-100%);
+                overflow: hidden;
+            }
+            
+            /* Điều chỉnh kích thước font chữ một chút cho cân đối khi xoay */
+            .digital-clock { font-size: 10vh; } 
+            .unit span { font-size: 2vh; }
+            #neon-text { font-size: 12vh; }
+        }
     </style>
 </head>
 
 <body>
-
-    <div id="rotate-device">
-        <div style="font-size: 50px;">🔄</div>
-        <p>Vui lòng xoay ngang điện thoại<br>để xem trình diễn tốt nhất!</p>
-    </div>
 
     <div id="countdown-bg"></div>
 
@@ -133,7 +130,7 @@
             <div class="unit">00<span>Phút</span></div> :
             <div class="unit" id="sec-unit">05<span>Giây</span></div>
         </div>
-        <p style="color: #00f2ff; letter-spacing: 4px; margin-top: 25px; font-size: 1.2rem;">COMING SOON</p>
+        <p style="color: #00f2ff; letter-spacing: 4px; margin-top: 25px; font-size: 1.2rem;">HỆ THỐNG SẴN SÀNG</p>
     </div>
 
     <div id="neon-text">HAPPY NEW YEAR</div>
@@ -169,9 +166,17 @@
         const ctx = canvas.getContext('2d');
         let cw, ch;
 
+        // Cập nhật hàm resize để nhận diện đúng kích thước khi đã xoay CSS
         const resize = () => {
-            cw = canvas.width = window.innerWidth;
-            ch = canvas.height = window.innerHeight;
+            if (window.innerWidth < window.innerHeight && window.innerWidth < 768) {
+                // Nếu đang ở chế độ dọc (portrait), gán width = chiều cao màn hình
+                cw = canvas.width = window.innerHeight;
+                ch = canvas.height = window.innerWidth;
+            } else {
+                // Chế độ bình thường
+                cw = canvas.width = window.innerWidth;
+                ch = canvas.height = window.innerHeight;
+            }
         };
         window.addEventListener('resize', resize);
         resize();
@@ -256,7 +261,7 @@
                 lastExplosionY = this.y;
                 screenFlashHue = this.hue;
                 screenFlashIntensity = 0.15;
-                const type = MyMath.randomInt(1, 3);
+                const type = MyMath.randomInt(1, 4);
                 const h = this.hue;
                 const count = (base) => Math.floor(base * particleCountMult);
 
@@ -287,6 +292,17 @@
                         break;
 
                     case 3:
+                        const heartCount = count(300);
+                        for(let i=0; i<heartCount; i++) {
+                            const a = Math.random() * MyMath.twoPI;
+                            const r = Math.random() * 12;
+                            const tx = 16 * Math.pow(Math.sin(a), 3);
+                            const ty = -(13 * Math.cos(a) - 5 * Math.cos(2*a) - 2 * Math.cos(3*a) - Math.cos(4*a));
+                            particles.push(new Particle(this.x, this.y, h, (tx/16)*r, (ty/16)*r, {friction: 0.94}));
+                        }
+                        break;
+
+                    case 4:
                         MyMath.createBurst(count(150), (a, r) => particles.push(new Particle(this.x, this.y, h, Math.cos(a)*9*r, Math.sin(a)*9*r, {
                             friction: 0.98, gravity: 0.04, decay: 0.008, flicker: true
                         })));
@@ -327,7 +343,7 @@
                 if (particles[i].alpha <= 0) particles.splice(i, 1);
             }
 
-            const freq = isMobile ? 120 : 100;
+            const freq = isMobile ? 180 : 150;
             if (MyMath.randomInt(0, freq) === 0) {
                 fireworks.push(new Firework());
             }
@@ -342,11 +358,6 @@
             
             if (timeLeft <= 0) {
                 clearInterval(countdownTimer);
-
-                if (screen.orientation && screen.orientation.lock) {
-                    screen.orientation.lock('landscape').catch(() => {});
-                }
-
                 document.getElementById('countdown-wrap').classList.add('hidden');
                 document.getElementById('countdown-bg').style.opacity = '0';
                 
