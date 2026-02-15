@@ -280,7 +280,7 @@
                 lastExplosionY = this.y;
                 screenFlashHue = this.hue;
                 screenFlashIntensity = 0.15;
-                const type = MyMath.randomInt(1, 4);
+                const type = MyMath.randomInt(1, 3);
                 const h = this.hue;
                 
                 // Giữ nguyên số lượng hạt (Quality) như PC
@@ -317,19 +317,8 @@
                         });
                         break;
 
-                    case 3: // Hình trái tim (Heart)
-                        const heartCount = count(300);
-                        for(let i=0; i<heartCount; i++) {
-                            const a = Math.random() * MyMath.twoPI;
-                            const r = Math.random() * force(12); // Bán kính trái tim scale
-                            const tx = 16 * Math.pow(Math.sin(a), 3);
-                            const ty = -(13 * Math.cos(a) - 5 * Math.cos(2*a) - 2 * Math.cos(3*a) - Math.cos(4*a));
-                            // Công thức trái tim chuẩn hoá, cần chia 16 để lấy đơn vị vector
-                            particles.push(new Particle(this.x, this.y, h, (tx/16)*r, (ty/16)*r, {friction: 0.94}));
-                        }
-                        break;
 
-                    case 4: // Nổ lớn có đuôi
+                    case 4:
                         MyMath.createBurst(count(150), (a, r) => particles.push(new Particle(this.x, this.y, h, Math.cos(a)*force(9)*r, Math.sin(a)*force(9)*r, {
                             friction: 0.98, gravity: 0.04, decay: 0.008, flicker: true
                         })));
@@ -372,7 +361,7 @@
             }
 
             // Tần suất bắn: Mobile bắn nhanh hơn chút vì màn nhỏ
-            const freq = (window.innerWidth < 768) ? 120 : 150; 
+            const freq = (window.innerWidth < 768) ? 120 : 100; 
             if (MyMath.randomInt(0, freq) === 0) {
                 fireworks.push(new Firework());
             }
@@ -401,3 +390,4 @@
     </script>
 </body>
 </html>
+
