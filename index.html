@@ -361,7 +361,7 @@
             }
 
             // Tần suất bắn: Mobile bắn nhanh hơn chút vì màn nhỏ
-            const freq = (window.innerWidth < 768) ? 100 : 100; 
+            const freq = (window.innerWidth < 768) ? 70 : 70; 
             if (MyMath.randomInt(0, freq) === 0) {
                 fireworks.push(new Firework());
             }
@@ -390,6 +390,7 @@
     </script>
 </body>
 </html>
+
 
 
 
